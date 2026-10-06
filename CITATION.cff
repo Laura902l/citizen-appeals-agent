@@ -1,0 +1,14 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "Citizen Appeals Agent: classification and SLA monitoring of citizen appeals"
+version: 0.1.0
+date-released: 2026-10-05
+license: MIT
+authors:
+  - family-names: Kazikhanova
+    given-names: Laura
+keywords:
+  - smart city
+  - text classification
+  - SLA monitoring
+  - research software
