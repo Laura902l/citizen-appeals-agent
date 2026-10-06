@@ -63,7 +63,7 @@ jobs:
         run: pytest --cov --cov-report=term-missing --cov-report=xml --cov-fail-under=90 --junitxml=junit.xml
       - name: Upload coverage report
         if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-report
           path: |
@@ -95,7 +95,7 @@ jobs:
           python -c "import json; m=json.load(open('reports/metrics.json')); m.pop('confusion_matrix'); print(json.dumps(m, indent=2))" >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
       - name: Upload experiment artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: experiment-reports
           path: reports/
@@ -122,7 +122,7 @@ jobs:
       - name: Production build
         run: npm run build
       - name: Upload built dashboard
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: dashboard-dist
           path: dashboard/dist/
