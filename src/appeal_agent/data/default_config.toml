@@ -1,0 +1,58 @@
+# Default configuration of the citizen-appeals agent.
+# All rules live here (not in code) so they can change without a release.
+# The SLA terms and holidays below are illustrative values for the prototype.
+
+categories = ["roads", "lighting", "water", "waste", "transport", "landscaping", "other"]
+
+[calendar]
+weekend = [5, 6]  # Saturday, Sunday (Monday = 0)
+holidays = [
+    "2026-01-01", "2026-01-02", "2026-01-07", "2026-03-09",
+    "2026-03-20", "2026-03-23", "2026-03-24", "2026-05-01",
+    "2026-05-07", "2026-05-11", "2026-05-27", "2026-07-06",
+    "2026-08-31", "2026-10-26", "2026-12-16",
+    "2027-01-01", "2027-01-07", "2027-03-08", "2027-03-22",
+    "2027-03-23", "2027-05-03", "2027-05-07", "2027-05-10",
+]
+
+[classifier]
+review_threshold = 0.55  # predictions below this confidence go to the review queue
+
+[urgency]
+keywords = [
+    "danger", "dangerous", "accident", "injured", "injury", "flood", "flooding",
+    "burst", "no water", "exposed wires", "sparking", "fire", "collapsed",
+    "child", "children", "emergency", "gas smell",
+]
+
+[sla.default]
+term_days = 15
+warning_days = 3
+
+[sla.rules.roads]
+term_days = 15
+warning_days = 3
+urgent_term_days = 5
+
+[sla.rules.lighting]
+term_days = 10
+warning_days = 2
+urgent_term_days = 3
+
+[sla.rules.water]
+term_days = 10
+warning_days = 2
+urgent_term_days = 2
+
+[sla.rules.waste]
+term_days = 7
+warning_days = 2
+urgent_term_days = 3
+
+[sla.rules.transport]
+term_days = 15
+warning_days = 3
+
+[sla.rules.landscaping]
+term_days = 15
+warning_days = 3
