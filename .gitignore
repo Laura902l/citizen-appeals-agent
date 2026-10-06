@@ -17,9 +17,9 @@ junit.xml
 htmlcov/
 
 # Generated experiment outputs (reproducible from the seed, not versioned)
-data/
-models/
-reports/
+/data/
+/models/
+/reports/
 
 # OS / editors
 .DS_Store
