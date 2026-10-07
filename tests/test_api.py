@@ -15,12 +15,17 @@ from typing import Any
 import pytest
 
 from appeal_agent.agent import AppealAgent
-from appeal_agent.api import AppealNotFoundError, DashboardService, create_server
+from appeal_agent.api import (
+    AppealAlreadyClosedError,
+    AppealNotFoundError,
+    DashboardService,
+    create_server,
+)
 from appeal_agent.classifier import AppealClassifier
 from appeal_agent.cli import _load_service
 from appeal_agent.config import AgentConfig
 from appeal_agent.data_gen import generate_appeals
-from appeal_agent.io import write_appeals
+from appeal_agent.io import read_appeals, write_appeals
 
 TODAY = date(2026, 10, 5)
 ORDER = ["overdue", "at_risk", "on_track", "closed_late", "closed_on_time"]
@@ -67,6 +72,35 @@ def test_confirm_category_updates_sla(service: DashboardService) -> None:
         service.confirm_category(row["appeal_id"], "spaceships")
     with pytest.raises(AppealNotFoundError):
         service.confirm_category("missing", "water")
+
+
+def test_close_appeal(service: DashboardService) -> None:
+    overdue = service.appeals(status="overdue")[0]
+    closed = service.close_appeal(overdue["appeal_id"])
+    assert closed["status"] == "closed_late"
+    assert closed["closed_on"] == TODAY.isoformat()
+    assert service.summary()["by_status"]["overdue"] == len(service.appeals(status="overdue"))
+    on_track = service.appeals(status="on_track")[0]
+    assert service.close_appeal(on_track["appeal_id"])["status"] == "closed_on_time"
+    with pytest.raises(AppealAlreadyClosedError):
+        service.close_appeal(overdue["appeal_id"])
+    with pytest.raises(AppealNotFoundError):
+        service.close_appeal("missing")
+
+
+def test_close_appeal_is_saved_to_csv(
+    config: AgentConfig, trained_model: AppealClassifier, tmp_path: Path
+) -> None:
+    path = tmp_path / "appeals.csv"
+    write_appeals(generate_appeals(30, seed=3, reference_date=TODAY), path)
+    service = DashboardService(
+        AppealAgent(config, trained_model), read_appeals(path), TODAY, data_path=path
+    )
+    appeal_id = service.appeals(status="overdue")[0]["appeal_id"]
+    service.close_appeal(appeal_id)
+    saved = {a.appeal_id: a for a in read_appeals(path)}
+    assert len(saved) == 30 and saved[appeal_id].closed_on == TODAY
+    assert not (tmp_path / "appeals.csv.tmp").exists()
 
 
 @pytest.fixture
@@ -121,6 +155,14 @@ def test_http_review(base_url: str) -> None:
     assert _post(f"{base_url}/api/appeals/{appeal_id}/review", {"category": "x"})[0] == 400
     assert _post(f"{base_url}/api/appeals/{appeal_id}/review", b"not json")[0] == 400
     assert _post(f"{base_url}/api/other", {})[0] == 404
+
+
+def test_http_close(base_url: str) -> None:
+    appeal_id = _get(f"{base_url}/api/appeals?status=overdue")[1][0]["appeal_id"]
+    status, row = _post(f"{base_url}/api/appeals/{appeal_id}/close", b"")
+    assert status == 200 and row["status"] == "closed_late" and row["closed_on"]
+    assert _post(f"{base_url}/api/appeals/{appeal_id}/close", b"")[0] == 409
+    assert _post(f"{base_url}/api/appeals/missing/close", b"")[0] == 404
 
 
 def test_static_files_and_spa_fallback(base_url: str) -> None:

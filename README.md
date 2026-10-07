@@ -57,6 +57,7 @@ For front-end development run `appeal-agent serve` and, in a second terminal,
 | `GET /api/metrics` | classifier evaluation metrics |
 | `GET /api/config` | categories and statuses |
 | `POST /api/appeals/<id>/review` | `{"category": "roads"}`: operator confirms a label, SLA is re-evaluated |
+| `POST /api/appeals/<id>/close` | operator closes an open appeal as of `--today`; the closing date is written back to the `--data` CSV |
 
 Example output of `train` and `monitor` (seed 42):
 

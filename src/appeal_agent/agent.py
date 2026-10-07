@@ -54,6 +54,7 @@ class AppealAgent:
                     remaining_business_days=sla.remaining_business_days,
                     status=sla.status,
                     model_version=self.classifier.version,
+                    closed_on=appeal.closed_on,
                 )
             )
         return results

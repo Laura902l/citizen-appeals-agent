@@ -36,3 +36,4 @@ class ProcessedAppeal:
     remaining_business_days: int
     status: SLAStatus
     model_version: str
+    closed_on: date | None = None

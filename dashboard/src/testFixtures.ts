@@ -15,6 +15,7 @@ export function makeAppeal(overrides: Partial<Appeal> = {}): Appeal {
     status: "on_track",
     model_version: "tfidf-logreg-test",
     reviewed: false,
+    closed_on: null,
     ...overrides,
   };
 }
