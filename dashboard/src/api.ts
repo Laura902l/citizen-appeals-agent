@@ -20,6 +20,8 @@ export const api = {
   appeals: () => request<Appeal[]>("/api/appeals"),
   /** Metrics are optional: the server returns 404 when the model was not evaluated. */
   metrics: () => request<Metrics>("/api/metrics").catch(() => null),
+  /** The same metrics on the appeals being served; 404 when they carry no known category. */
+  liveMetrics: () => request<Metrics>("/api/metrics/live").catch(() => null),
   review: (id: string, category: string) =>
     request<Appeal>(`/api/appeals/${encodeURIComponent(id)}/review`, {
       method: "POST",

@@ -8,6 +8,7 @@ import threading
 import urllib.error
 import urllib.request
 from collections.abc import Iterator
+from dataclasses import replace
 from datetime import date
 from pathlib import Path
 from typing import Any
@@ -72,6 +73,23 @@ def test_confirm_category_updates_sla(service: DashboardService) -> None:
         service.confirm_category(row["appeal_id"], "spaceships")
     with pytest.raises(AppealNotFoundError):
         service.confirm_category("missing", "water")
+
+
+def test_live_metrics_on_served_appeals(service: DashboardService) -> None:
+    live = service.live_metrics
+    assert live is not None
+    assert live["n_test"] == 150 and live["n_unlabelled"] == 0
+    assert 0.0 <= live["accuracy"] <= 1.0
+    assert sum(map(sum, live["confusion_matrix"])) == 150
+
+
+def test_live_metrics_skip_unlabelled(config: AgentConfig, trained_model: AppealClassifier) -> None:
+    appeals = [replace(a, category=None) for a in generate_appeals(10, seed=5)]
+    service = DashboardService(AppealAgent(config, trained_model), appeals, TODAY)
+    assert service.live_metrics is None
+    labelled = generate_appeals(10, seed=5)[:4] + appeals[4:]
+    live = DashboardService(AppealAgent(config, trained_model), labelled, TODAY).live_metrics
+    assert live is not None and live["n_test"] == 4 and live["n_unlabelled"] == 6
 
 
 def test_close_appeal(service: DashboardService) -> None:
@@ -142,6 +160,7 @@ def test_http_get_endpoints(base_url: str) -> None:
     assert "categories" in _get(f"{base_url}/api/config")[1]
     assert _get(f"{base_url}/api/summary")[1]["total"] == 150
     assert _get(f"{base_url}/api/metrics")[1] == {"accuracy": 0.9}
+    assert _get(f"{base_url}/api/metrics/live")[1]["n_test"] == 150
     status, rows, _ = _get(f"{base_url}/api/appeals?status=overdue&review=")
     assert status == 200 and all(r["status"] == "overdue" for r in rows)
     assert _get(f"{base_url}/api/nope")[0] == 404
@@ -180,6 +199,7 @@ def test_missing_metrics_and_static(config: AgentConfig, trained_model: AppealCl
     url = f"http://127.0.0.1:{server.server_address[1]}"
     try:
         assert _get(f"{url}/api/metrics")[0] == 404
+        assert _get(f"{url}/api/metrics/live")[0] == 404
         assert _get(f"{url}/")[0] == 404
     finally:
         server.shutdown()

@@ -218,113 +218,173 @@ export function ReviewPage({
 
 /* ------------------------------------------------------------------ model */
 
-export function ModelPage({ metrics, version }: { metrics: Metrics | null; version: string }) {
-  const tip = useTooltip();
-  if (!metrics) {
-    return (
-      <Panel title="Model quality">
-        <p className="empty">
-          No evaluation metrics available. Run <code>appeal-agent train</code> first.
-        </p>
-      </Panel>
-    );
-  }
-  const labels = metrics.labels ?? [];
-  const cm = metrics.confusion_matrix ?? [];
-  const rowMax = Math.max(1, ...cm.flat());
+export function ModelPage({
+  metrics,
+  liveMetrics,
+  version,
+}: {
+  metrics: Metrics | null;
+  liveMetrics: Metrics | null;
+  version: string;
+}) {
+  return (
+    <div className="stack">
+      <h2 className="section-title">Test set (at training)</h2>
+      {metrics ? (
+        <div className="stack">
+          <MetricFigures metrics={metrics} label="Test set metrics" />
+          <div className="grid-2">
+            <ConfusionMatrix metrics={metrics} />
+            <Panel title="Evaluation">
+              <dl className="facts facts-1">
+                <div>
+                  <dt>Model</dt>
+                  <dd>TF-IDF (word 1–2-grams) + logistic regression</dd>
+                </div>
+                <div>
+                  <dt>Version</dt>
+                  <dd className="mono">{metrics.model_version ?? version}</dd>
+                </div>
+                <div>
+                  <dt>Training / test appeals</dt>
+                  <dd>
+                    {metrics.n_train !== undefined ? fmtInt(metrics.n_train) : "—"} / {fmtInt(metrics.n_test)}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Random seed</dt>
+                  <dd>{metrics.seed ?? "—"}</dd>
+                </div>
+                <div>
+                  <dt>Data</dt>
+                  <dd>Simulated appeals; results on real appeals are expected to be lower.</dd>
+                </div>
+              </dl>
+            </Panel>
+          </div>
+        </div>
+      ) : (
+        <Panel title="Test set">
+          <p className="empty">
+            No evaluation metrics available. Run <code>appeal-agent train</code> first.
+          </p>
+        </Panel>
+      )}
+
+      <h2 className="section-title">Current data (appeals being served)</h2>
+      {liveMetrics ? (
+        <div className="stack">
+          <MetricFigures metrics={liveMetrics} label="Current data metrics" />
+          <div className="grid-2">
+            <ConfusionMatrix metrics={liveMetrics} />
+            <Panel title="About this check">
+              <dl className="facts facts-1">
+                <div>
+                  <dt>Data file</dt>
+                  <dd className="mono">{liveMetrics.source ?? "—"}</dd>
+                </div>
+                <div>
+                  <dt>Appeals with a known category</dt>
+                  <dd>{fmtInt(liveMetrics.n_test)}</dd>
+                </div>
+                <div>
+                  <dt>Without a category (not checked)</dt>
+                  <dd>{fmtInt(liveMetrics.n_unlabelled ?? 0)}</dd>
+                </div>
+                <div>
+                  <dt>How to read it</dt>
+                  <dd>
+                    The model's category is compared with the category stored in the data file, once
+                    at server start. If this is the training file, most of these appeals were seen
+                    during training and the figures are optimistic; serve a file generated with
+                    another seed to check the model on unseen appeals.
+                  </dd>
+                </div>
+              </dl>
+            </Panel>
+          </div>
+        </div>
+      ) : (
+        <Panel title="Current data">
+          <p className="empty">
+            The served appeals have no known category, so the model cannot be checked against them.
+          </p>
+        </Panel>
+      )}
+    </div>
+  );
+}
+
+function MetricFigures({ metrics, label }: { metrics: Metrics; label: string }) {
   const items = [
     { label: "Accuracy", value: percent(metrics.accuracy) },
     { label: "Macro F1", value: percent(metrics.macro_f1) },
     { label: "Sent to review", value: percent(metrics.review_rate) },
-    {
-      label: "Auto-accepted accuracy",
-      value: percent(metrics.auto_accepted_accuracy),
-    },
+    { label: "Auto-accepted accuracy", value: percent(metrics.auto_accepted_accuracy) },
   ];
   return (
-    <div className="stack">
-      <section className="kpis kpis-4" aria-label="Model metrics">
-        {items.map((i) => (
-          <div key={i.label} className="kpi kpi-static">
-            <span className="kpi-label">{i.label}</span>
-            <span className="kpi-value">{i.value}</span>
-          </div>
-        ))}
-      </section>
-      <div className="grid-2">
-        <Panel title="Confusion matrix (rows: actual, columns: predicted)">
-          <div className="table-wrap">
-            <table className="matrix">
-              <thead>
-                <tr>
-                  <th />
-                  {labels.map((l) => (
-                    <th key={l} scope="col">
-                      {capitalize(l)}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {cm.map((row, i) => (
-                  <tr key={labels[i]}>
-                    <th scope="row">{capitalize(labels[i])}</th>
-                    {row.map((v, j) => (
-                      <td
-                        key={labels[j]}
-                        className={i === j ? "diag" : v ? "miss" : undefined}
-                        style={{ "--level": v / rowMax } as React.CSSProperties}
-                        onMouseMove={(e) =>
-                          tip.show(
-                            e,
-                            <>
-                              <strong>
-                                {capitalize(labels[i])} → {capitalize(labels[j])}
-                              </strong>
-                              <span className="tooltip-row">
-                                Appeals <b>{v}</b>
-                              </span>
-                            </>,
-                          )
-                        }
-                        onMouseLeave={tip.hide}
-                      >
-                        {v}
-                      </td>
-                    ))}
-                  </tr>
+    <section className="kpis kpis-4" aria-label={label}>
+      {items.map((i) => (
+        <div key={i.label} className="kpi kpi-static">
+          <span className="kpi-label">{i.label}</span>
+          <span className="kpi-value">{i.value}</span>
+        </div>
+      ))}
+    </section>
+  );
+}
+
+function ConfusionMatrix({ metrics }: { metrics: Metrics }) {
+  const tip = useTooltip();
+  const labels = metrics.labels ?? [];
+  const cm = metrics.confusion_matrix ?? [];
+  const rowMax = Math.max(1, ...cm.flat());
+  return (
+    <Panel title="Confusion matrix (rows: actual, columns: predicted)">
+      <div className="table-wrap">
+        <table className="matrix">
+          <thead>
+            <tr>
+              <th />
+              {labels.map((l) => (
+                <th key={l} scope="col">
+                  {capitalize(l)}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {cm.map((row, i) => (
+              <tr key={labels[i]}>
+                <th scope="row">{capitalize(labels[i])}</th>
+                {row.map((v, j) => (
+                  <td
+                    key={labels[j]}
+                    className={i === j ? "diag" : v ? "miss" : undefined}
+                    style={{ "--level": v / rowMax } as React.CSSProperties}
+                    onMouseMove={(e) =>
+                      tip.show(
+                        e,
+                        <>
+                          <strong>
+                            {capitalize(labels[i])} → {capitalize(labels[j])}
+                          </strong>
+                          <span className="tooltip-row">
+                            Appeals <b>{v}</b>
+                          </span>
+                        </>,
+                      )
+                    }
+                    onMouseLeave={tip.hide}
+                  >
+                    {v}
+                  </td>
                 ))}
-              </tbody>
-            </table>
-          </div>
-        </Panel>
-        <Panel title="Evaluation">
-          <dl className="facts facts-1">
-            <div>
-              <dt>Model</dt>
-              <dd>TF-IDF (word 1–2-grams) + logistic regression</dd>
-            </div>
-            <div>
-              <dt>Version</dt>
-              <dd className="mono">{metrics.model_version ?? version}</dd>
-            </div>
-            <div>
-              <dt>Training / test appeals</dt>
-              <dd>
-                {metrics.n_train !== undefined ? fmtInt(metrics.n_train) : "—"} / {fmtInt(metrics.n_test)}
-              </dd>
-            </div>
-            <div>
-              <dt>Random seed</dt>
-              <dd>{metrics.seed ?? "—"}</dd>
-            </div>
-            <div>
-              <dt>Data</dt>
-              <dd>Simulated appeals; results on real appeals are expected to be lower.</dd>
-            </div>
-          </dl>
-        </Panel>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
-    </div>
+    </Panel>
   );
 }
