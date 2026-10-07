@@ -28,6 +28,7 @@ keywords = [
 [sla.default]
 term_days = 15
 warning_days = 3
+urgent_term_days = 5
 
 [sla.rules.roads]
 term_days = 15
@@ -52,7 +53,9 @@ urgent_term_days = 3
 [sla.rules.transport]
 term_days = 15
 warning_days = 3
+urgent_term_days = 3  # e.g. a broken traffic light
 
 [sla.rules.landscaping]
 term_days = 15
 warning_days = 3
+urgent_term_days = 5  # e.g. a fallen tree or broken playground equipment

@@ -8,6 +8,7 @@ single-operator prototype. Endpoints:
     GET  /api/summary                     counts per SLA status, review queue size
     GET  /api/appeals?status=&category=&review=true&q=
     GET  /api/metrics                     classifier metrics (if available)
+    GET  /api/metrics/live                the same metrics on the appeals being served
     POST /api/appeals/<id>/review         {"category": "..."} operator confirms a label
     POST /api/appeals/<id>/close          operator closes an open appeal as of "today"
 
@@ -28,6 +29,7 @@ from typing import Any
 from urllib.parse import parse_qs, unquote, urlparse
 
 from appeal_agent.agent import AppealAgent
+from appeal_agent.evaluation import evaluate_classifier
 from appeal_agent.io import write_appeals
 from appeal_agent.models import Appeal, ProcessedAppeal
 from appeal_agent.sla import SLAStatus
@@ -74,6 +76,23 @@ class DashboardService:
         self._processed = {p.appeal_id: p for p in agent.process(appeals, today)}
         self._reviewed: set[str] = set()
         self._lock = threading.Lock()
+        self.live_metrics = self._live_metrics(appeals)
+
+    def _live_metrics(self, appeals: list[Appeal]) -> dict[str, Any] | None:
+        """Evaluate the model on the served appeals that carry a known category.
+
+        Computed once at start-up: it compares the model with the labels in the
+        data file, so operator decisions and closures do not change it.
+        """
+        labelled = [a for a in appeals if a.category]
+        if not labelled:
+            return None
+        metrics = evaluate_classifier(
+            self.agent.classifier, [a.text for a in labelled], [str(a.category) for a in labelled]
+        )
+        metrics["n_unlabelled"] = len(appeals) - len(labelled)
+        metrics["source"] = self.data_path.name if self.data_path else None
+        return metrics
 
     def _to_json(self, item: ProcessedAppeal) -> dict[str, Any]:
         row = asdict(item)
@@ -248,6 +267,11 @@ def make_handler(
                     self._error(HTTPStatus.NOT_FOUND, "no metrics available; run `train` first")
                 else:
                     self._send_json(service.metrics)
+            elif url.path == "/api/metrics/live":
+                if service.live_metrics is None:
+                    self._error(HTTPStatus.NOT_FOUND, "no labelled appeals in the served data")
+                else:
+                    self._send_json(service.live_metrics)
             elif url.path == "/api/appeals":
                 self._send_json(
                     service.appeals(

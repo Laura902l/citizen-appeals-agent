@@ -43,7 +43,7 @@ const metrics = {
   ],
 };
 
-function mockFetch() {
+function mockFetch(liveMetrics: unknown = null) {
   return vi.fn(async (url: string, init?: RequestInit) => {
     const json = (body: unknown, status = 200) =>
       new Response(JSON.stringify(body), {
@@ -55,6 +55,7 @@ function mockFetch() {
     if (url === "/api/summary") return json(summary);
     if (url === "/api/appeals") return json(appeals);
     if (url === "/api/metrics") return json(metrics);
+    if (url === "/api/metrics/live" && liveMetrics) return json(liveMetrics);
     if (url.endsWith("/review") && init?.method === "POST") {
       const { category } = JSON.parse(String(init.body));
       return json({ ...appeals[1], category, needs_review: false, reviewed: true, confidence: 1 });
@@ -133,6 +134,25 @@ describe("App", () => {
     expect(await screen.findByText(/Confusion matrix/)).toBeInTheDocument();
     expect(screen.getByText("96.0%")).toBeInTheDocument();
     expect(screen.getByText("1,600 / 400")).toBeInTheDocument();
+  });
+
+  it("shows the model checked on the appeals being served", async () => {
+    vi.stubGlobal(
+      "fetch",
+      mockFetch({ ...metrics, accuracy: 0.945, n_test: 2000, n_unlabelled: 0, source: "new_appeals.csv" }),
+    );
+    window.location.hash = "#/model";
+    render(<App />);
+    const live = await screen.findByRole("region", { name: "Current data metrics" });
+    expect(within(live).getByText("94.5%")).toBeInTheDocument();
+    expect(within(screen.getByRole("region", { name: "Test set metrics" })).getByText("96.0%")).toBeInTheDocument();
+    expect(screen.getByText("new_appeals.csv")).toBeInTheDocument();
+  });
+
+  it("explains when the served appeals cannot be checked", async () => {
+    window.location.hash = "#/model";
+    render(<App />);
+    expect(await screen.findByText(/have no known category/)).toBeInTheDocument();
   });
 
   it("reports when the API is unavailable", async () => {

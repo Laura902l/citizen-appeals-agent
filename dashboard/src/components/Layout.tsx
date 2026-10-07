@@ -15,7 +15,6 @@ interface LayoutProps {
   reviewCount: number;
   today: string;
   modelVersion: string;
-  onRefresh: () => void;
   title: string;
   children: ReactNode;
 }
@@ -26,7 +25,6 @@ export function Layout({
   reviewCount,
   today,
   modelVersion,
-  onRefresh,
   title,
   children,
 }: LayoutProps) {
@@ -72,9 +70,6 @@ export function Layout({
       <div className="main">
         <header className="topbar">
           <h1>{title}</h1>
-          <button type="button" className="btn" onClick={onRefresh}>
-            Refresh
-          </button>
         </header>
         <main className="content">{children}</main>
       </div>

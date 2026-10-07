@@ -14,6 +14,7 @@ interface Data {
   summary: Summary;
   appeals: Appeal[];
   metrics: Metrics | null;
+  liveMetrics: Metrics | null;
 }
 
 const TITLES: Record<Route, string> = {
@@ -34,13 +35,14 @@ export default function App() {
 
   const load = useCallback(async () => {
     try {
-      const [config, summary, appeals, metrics] = await Promise.all([
+      const [config, summary, appeals, metrics, liveMetrics] = await Promise.all([
         api.config(),
         api.summary(),
         api.appeals(),
         api.metrics(),
+        api.liveMetrics(),
       ]);
-      setData({ config, summary, appeals, metrics });
+      setData({ config, summary, appeals, metrics, liveMetrics });
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -118,7 +120,7 @@ export default function App() {
     );
   }
 
-  const { config, summary, metrics, appeals } = data;
+  const { config, summary, metrics, liveMetrics, appeals } = data;
   const opened = openId ? appeals.find((a) => a.appeal_id === openId) : undefined;
   return (
     <TooltipProvider>
@@ -129,7 +131,6 @@ export default function App() {
         today={summary.today}
         modelVersion={summary.model_version}
         title={TITLES[route]}
-        onRefresh={() => void load()}
       >
         {route === "overview" && (
           <OverviewPage
@@ -162,7 +163,9 @@ export default function App() {
             onOpen={(a) => setOpenId(a.appeal_id)}
           />
         )}
-        {route === "model" && <ModelPage metrics={metrics} version={summary.model_version} />}
+        {route === "model" && (
+          <ModelPage metrics={metrics} liveMetrics={liveMetrics} version={summary.model_version} />
+        )}
       </Layout>
 
       {opened && (

@@ -10,6 +10,13 @@ All notable changes are documented here. The format follows
 - Operator can close an open appeal from the dashboard (`POST /api/appeals/<id>/close`):
   the SLA status becomes closed on time / closed late and the closing date is saved
   to the appeals CSV.
+- Model quality page shows a second block, "Current data": accuracy, macro F1 and the
+  confusion matrix of the model on the appeals being served (`GET /api/metrics/live`).
+
+### Changed
+- Urgent terms for transport (3 days), landscaping (5) and the default rule (5);
+  previously urgent appeals in these categories kept the regular 15-day term.
+- Removed the dashboard's Refresh button.
 
 ## [0.1.0] - 2026-10-05
 

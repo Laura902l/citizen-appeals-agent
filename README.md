@@ -55,6 +55,7 @@ For front-end development run `appeal-agent serve` and, in a second terminal,
 | `GET /api/summary` | counts per SLA status, open appeals per category, review queue size |
 | `GET /api/appeals?status=&category=&review=true&q=` | appeals, most urgent first |
 | `GET /api/metrics` | classifier evaluation metrics |
+| `GET /api/metrics/live` | the same metrics on the appeals being served (their stored category vs the model) |
 | `GET /api/config` | categories and statuses |
 | `POST /api/appeals/<id>/review` | `{"category": "roads"}`: operator confirms a label, SLA is re-evaluated |
 | `POST /api/appeals/<id>/close` | operator closes an open appeal as of `--today`; the closing date is written back to the `--data` CSV |

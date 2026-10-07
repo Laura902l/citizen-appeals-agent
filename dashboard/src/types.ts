@@ -38,6 +38,9 @@ export interface Metrics {
   model_version?: string;
   labels?: string[];
   confusion_matrix?: number[][];
+  /** Live metrics only: served appeals without a known category, and the data file name. */
+  n_unlabelled?: number;
+  source?: string | null;
 }
 
 export interface AppConfig {
