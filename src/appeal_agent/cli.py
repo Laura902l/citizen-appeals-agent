@@ -97,7 +97,9 @@ def _load_service(args: argparse.Namespace) -> DashboardService:
         json.loads(metrics_path.read_text(encoding="utf-8")) if metrics_path.is_file() else None
     )
     agent = AppealAgent(config, AppealClassifier.load(args.model))
-    return DashboardService(agent, read_appeals(args.data), args.today, metrics)
+    return DashboardService(
+        agent, read_appeals(args.data), args.today, metrics, data_path=Path(args.data)
+    )
 
 
 def _cmd_serve(args: argparse.Namespace) -> int:  # pragma: no cover - blocking loop

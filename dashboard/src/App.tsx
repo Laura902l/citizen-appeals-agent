@@ -79,6 +79,20 @@ export default function App() {
     window.setTimeout(() => setToast(null), 3500);
   };
 
+  const closeAppeal = async (id: string) => {
+    try {
+      const updated = await api.close(id);
+      const summary = await api.summary();
+      setData((d) =>
+        d && { ...d, summary, appeals: d.appeals.map((a) => (a.appeal_id === id ? updated : a)) },
+      );
+      setToast(`Closed. ${id}: ${updated.status === "closed_late" ? "after" : "within"} the deadline.`);
+    } catch (e) {
+      setToast(`Could not close: ${e instanceof Error ? e.message : e}`);
+    }
+    window.setTimeout(() => setToast(null), 3500);
+  };
+
   if (error) {
     return (
       <div className="fullscreen">
@@ -158,6 +172,7 @@ export default function App() {
           categories={config.categories}
           onClose={() => setOpenId(null)}
           onReview={review}
+          onCloseAppeal={closeAppeal}
         />
       )}
       {toast && (

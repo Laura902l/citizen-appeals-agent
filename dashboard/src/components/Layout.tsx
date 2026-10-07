@@ -67,10 +67,6 @@ export function Layout({
             <dt>Model version</dt>
             <dd className="mono">{modelVersion}</dd>
           </div>
-          <div>
-            <dt>Environment</dt>
-            <dd>Test · simulated appeals, personal data masked</dd>
-          </div>
         </dl>
       </aside>
       <div className="main">

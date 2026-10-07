@@ -59,6 +59,9 @@ function mockFetch() {
       const { category } = JSON.parse(String(init.body));
       return json({ ...appeals[1], category, needs_review: false, reviewed: true, confidence: 1 });
     }
+    if (url.endsWith("/close") && init?.method === "POST") {
+      return json({ ...appeals[0], status: "closed_late", closed_on: summary.today });
+    }
     return json({ error: "not found" }, 404);
   });
 }
@@ -109,6 +112,19 @@ describe("App", () => {
     await user.selectOptions(screen.getByLabelText("Category for A2"), "roads");
     await user.click(screen.getByRole("button", { name: "Correct label" }));
     await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Saved. A2"));
+  });
+
+  it("lets an operator close an open appeal after confirming", async () => {
+    const user = userEvent.setup();
+    window.location.hash = "#/appeals";
+    render(<App />);
+    await user.click(await screen.findByRole("button", { name: "A1" }));
+    const dialog = screen.getByRole("dialog", { name: "Appeal A1" });
+    await user.click(within(dialog).getByRole("button", { name: "Close appeal" }));
+    await user.click(within(dialog).getByRole("button", { name: "Confirm closing" }));
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Closed. A1"));
+    expect(within(dialog).getByText("Closed late")).toBeInTheDocument();
+    expect(within(dialog).queryByRole("button", { name: "Close appeal" })).not.toBeInTheDocument();
   });
 
   it("shows model metrics and the confusion matrix", async () => {

@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import type { Appeal } from "../types";
-import { capitalize, daysLeftLabel, formatDate, parseISO } from "../utils";
+import { capitalize, daysLeftLabel, formatDate, isOpen, parseISO } from "../utils";
+import { CloseControl } from "./CloseControl";
 import { ReviewControl } from "./ReviewControl";
 import { StatusBadge } from "./StatusBadge";
 
@@ -8,12 +9,14 @@ interface Props {
   appeal: Appeal;
   today: string;
   categories: string[];
+  /** Closes the panel (not the appeal). */
   onClose: () => void;
   onReview: (id: string, category: string) => Promise<void>;
+  onCloseAppeal: (id: string) => Promise<void>;
 }
 
 /** Side panel with the full record of one appeal and its SLA timeline. */
-export function AppealDrawer({ appeal: a, today, categories, onClose, onReview }: Props) {
+export function AppealDrawer({ appeal: a, today, categories, onClose, onReview, onCloseAppeal }: Props) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", onKey);
@@ -42,7 +45,7 @@ export function AppealDrawer({ appeal: a, today, categories, onClose, onReview }
             {a.urgent && <span className="text-urgent">Urgent (shortened term)</span>}
           </div>
 
-          <Timeline submitted={a.submitted_on} deadline={a.deadline} today={today} />
+          <Timeline submitted={a.submitted_on} deadline={a.deadline} today={a.closed_on ?? today} />
 
           <section>
             <h3>Appeal text</h3>
@@ -63,6 +66,12 @@ export function AppealDrawer({ appeal: a, today, categories, onClose, onReview }
               <dt>Regulatory deadline</dt>
               <dd>{formatDate(a.deadline)}</dd>
             </div>
+            {a.closed_on && (
+              <div>
+                <dt>Closed</dt>
+                <dd>{formatDate(a.closed_on)}</dd>
+              </div>
+            )}
             <div>
               <dt>Remaining</dt>
               <dd>{a.remaining_business_days} business days</dd>
@@ -93,6 +102,13 @@ export function AppealDrawer({ appeal: a, today, categories, onClose, onReview }
                 the category; the deadline will be recalculated.
               </p>
               <ReviewControl appeal={a} categories={categories} onReview={onReview} />
+            </section>
+          )}
+
+          {isOpen(a) && (
+            <section>
+              <h3>Processing</h3>
+              <CloseControl appeal={a} today={today} onCloseAppeal={onCloseAppeal} />
             </section>
           )}
 

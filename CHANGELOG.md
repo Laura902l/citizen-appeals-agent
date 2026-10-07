@@ -4,6 +4,13 @@ All notable changes are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- Operator can close an open appeal from the dashboard (`POST /api/appeals/<id>/close`):
+  the SLA status becomes closed on time / closed late and the closing date is saved
+  to the appeals CSV.
+
 ## [0.1.0] - 2026-10-05
 
 ### Added

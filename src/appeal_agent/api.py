@@ -9,6 +9,7 @@ single-operator prototype. Endpoints:
     GET  /api/appeals?status=&category=&review=true&q=
     GET  /api/metrics                     classifier metrics (if available)
     POST /api/appeals/<id>/review         {"category": "..."} operator confirms a label
+    POST /api/appeals/<id>/close          operator closes an open appeal as of "today"
 
 Any other path is served from the built React dashboard (``--static``).
 """
@@ -27,6 +28,7 @@ from typing import Any
 from urllib.parse import parse_qs, unquote, urlparse
 
 from appeal_agent.agent import AppealAgent
+from appeal_agent.io import write_appeals
 from appeal_agent.models import Appeal, ProcessedAppeal
 from appeal_agent.sla import SLAStatus
 
@@ -45,8 +47,16 @@ class AppealNotFoundError(LookupError):
     pass
 
 
+class AppealAlreadyClosedError(ValueError):
+    pass
+
+
 class DashboardService:
-    """Holds processed appeals in memory and answers dashboard queries."""
+    """Holds processed appeals in memory and answers dashboard queries.
+
+    If ``data_path`` is given, closing an appeal writes the updated appeals back
+    to that CSV, so the closure survives a server restart.
+    """
 
     def __init__(
         self,
@@ -54,10 +64,12 @@ class DashboardService:
         appeals: list[Appeal],
         today: date,
         metrics: dict[str, Any] | None = None,
+        data_path: Path | None = None,
     ) -> None:
         self.agent = agent
         self.today = today
         self.metrics = metrics
+        self.data_path = data_path
         self._appeals = {a.appeal_id: a for a in appeals}
         self._processed = {p.appeal_id: p for p in agent.process(appeals, today)}
         self._reviewed: set[str] = set()
@@ -67,6 +79,7 @@ class DashboardService:
         row = asdict(item)
         row["submitted_on"] = item.submitted_on.isoformat()
         row["deadline"] = item.deadline.isoformat()
+        row["closed_on"] = item.closed_on.isoformat() if item.closed_on else None
         row["status"] = item.status.value
         row["reviewed"] = item.appeal_id in self._reviewed
         return row
@@ -152,6 +165,45 @@ class DashboardService:
             self._reviewed.add(appeal_id)
             return self._to_json(updated)
 
+    def close_appeal(self, appeal_id: str) -> dict[str, Any]:
+        """Operator closes an open appeal on ``today``; the SLA becomes closed on time or late."""
+        with self._lock:
+            if appeal_id not in self._processed:
+                raise AppealNotFoundError(appeal_id)
+            current = self._processed[appeal_id]
+            appeal = self._appeals[appeal_id]
+            if appeal.closed_on is not None:
+                raise AppealAlreadyClosedError(f"appeal {appeal_id} is already closed")
+            if self.today < appeal.submitted_on:
+                raise ValueError(f"appeal {appeal_id} was submitted after {self.today}")
+            closed = replace(appeal, closed_on=self.today)
+            sla = self.agent.sla.evaluate(
+                closed.submitted_on,
+                current.category,
+                self.today,
+                urgent=current.urgent,
+                closed_on=closed.closed_on,
+            )
+            if self.data_path is not None:
+                self._save({**self._appeals, appeal_id: closed}, self.data_path)
+            self._appeals[appeal_id] = closed
+            updated = replace(
+                current,
+                closed_on=closed.closed_on,
+                deadline=sla.deadline,
+                remaining_business_days=sla.remaining_business_days,
+                status=sla.status,
+            )
+            self._processed[appeal_id] = updated
+            return self._to_json(updated)
+
+    @staticmethod
+    def _save(appeals: dict[str, Appeal], path: Path) -> None:
+        # Write to a temporary file first so a crash never leaves a half-written CSV.
+        tmp = path.with_name(f"{path.name}.tmp")
+        write_appeals(appeals.values(), tmp)
+        tmp.replace(path)
+
 
 def _flag(value: str | None) -> bool | None:
     if value is None or value == "":
@@ -212,16 +264,26 @@ def make_handler(
 
         def do_POST(self) -> None:  # noqa: N802
             parts = urlparse(self.path).path.strip("/").split("/")
-            if len(parts) != 4 or parts[:2] != ["api", "appeals"] or parts[3] != "review":
+            if (
+                len(parts) != 4
+                or parts[:2] != ["api", "appeals"]
+                or parts[3] not in {"review", "close"}
+            ):
                 self._error(HTTPStatus.NOT_FOUND, "unknown endpoint")
                 return
+            appeal_id = unquote(parts[2])
             try:
+                if parts[3] == "close":
+                    self._send_json(service.close_appeal(appeal_id))
+                    return
                 length = int(self.headers.get("Content-Length", "0"))
                 body = json.loads(self.rfile.read(length) or b"{}")
                 category = body["category"]
-                self._send_json(service.confirm_category(unquote(parts[2]), category))
+                self._send_json(service.confirm_category(appeal_id, category))
             except AppealNotFoundError:
                 self._error(HTTPStatus.NOT_FOUND, "appeal not found")
+            except AppealAlreadyClosedError as exc:
+                self._error(HTTPStatus.CONFLICT, str(exc))
             except (ValueError, KeyError, TypeError) as exc:
                 self._error(HTTPStatus.BAD_REQUEST, f"invalid request: {exc}")
 

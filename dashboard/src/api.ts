@@ -26,4 +26,6 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ category }),
     }),
+  close: (id: string) =>
+    request<Appeal>(`/api/appeals/${encodeURIComponent(id)}/close`, { method: "POST" }),
 };

@@ -14,6 +14,7 @@ export interface Appeal {
   status: SLAStatus;
   model_version: string;
   reviewed: boolean;
+  closed_on: string | null;
 }
 
 export interface Summary {
