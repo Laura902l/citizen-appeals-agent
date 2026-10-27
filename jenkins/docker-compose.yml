@@ -6,6 +6,8 @@ services:
     restart: unless-stopped
     ports:
       - "8080:8080"
+    environment:
+      JAVA_OPTS: "-Xms256m -Xmx768m"
     group_add:
       - "0"
     volumes:
