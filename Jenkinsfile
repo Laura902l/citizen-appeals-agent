@@ -13,6 +13,8 @@ pipeline {
 
     environment {
         IMAGE = 'citizen-appeals-agent'
+        DOCKERHUB = credentials('dockerhub')
+        K8S_NAMESPACE = 'citizen-appeals'
         VENV = "${WORKSPACE}/.venv"
         PATH = "${WORKSPACE}/.venv/bin:${env.PATH}"
     }
@@ -87,11 +89,43 @@ pipeline {
                 }
             }
         }
+
+        stage('Push') {
+            steps {
+                sh '''
+                    echo "$DOCKERHUB_PSW" | docker login -u "$DOCKERHUB_USR" --password-stdin
+                    docker tag "$IMAGE:$TAG" "$DOCKERHUB_USR/$IMAGE:$TAG"
+                    docker tag "$IMAGE:$TAG" "$DOCKERHUB_USR/$IMAGE:latest"
+                    docker push "$DOCKERHUB_USR/$IMAGE:$TAG"
+                    docker push "$DOCKERHUB_USR/$IMAGE:latest"
+                '''
+            }
+            post {
+                always {
+                    sh 'docker logout || true'
+                }
+            }
+        }
+
+        stage('Deploy') {
+            steps {
+                withCredentials([file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG')]) {
+                    sh '''
+                        kubectl apply -f k8s/namespace.yaml
+                        kubectl apply -f k8s/
+                        kubectl -n "$K8S_NAMESPACE" set image deployment/citizen-appeals-agent app="$DOCKERHUB_USR/$IMAGE:$TAG"
+                        kubectl -n "$K8S_NAMESPACE" annotate deployment/citizen-appeals-agent kubernetes.io/change-cause="build $BUILD_NUMBER, commit $TAG" --overwrite
+                        kubectl -n "$K8S_NAMESPACE" rollout status deployment/citizen-appeals-agent --timeout=180s
+                        kubectl -n "$K8S_NAMESPACE" get pods,svc
+                    '''
+                }
+            }
+        }
     }
 
     post {
         success {
-            echo "Image $IMAGE:$TAG is ready"
+            echo "Image $IMAGE:$TAG is deployed to http://localhost:30080"
         }
     }
 }
