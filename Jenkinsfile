@@ -71,11 +71,11 @@ pipeline {
                     docker rm -f "smoke-$TAG" 2>/dev/null || true
                     docker run -d --name "smoke-$TAG" "$IMAGE:$TAG"
                     for i in $(seq 1 15); do
-                        if docker exec "smoke-$TAG" python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/summary')"; then
+                        sleep 2
+                        if docker exec "smoke-$TAG" python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/summary')" 2>/dev/null; then
                             echo "API is up"
                             exit 0
                         fi
-                        sleep 2
                     done
                     docker logs "smoke-$TAG"
                     exit 1
