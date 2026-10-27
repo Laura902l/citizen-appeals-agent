@@ -1,5 +1,3 @@
-"""Plain data records shared by all modules (the fixed data schema)."""
-
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -10,8 +8,6 @@ from appeal_agent.sla import SLAStatus
 
 @dataclass(frozen=True)
 class Appeal:
-    """An incoming citizen appeal. ``category`` is the ground-truth label, if known."""
-
     appeal_id: str
     submitted_on: date
     text: str
@@ -22,8 +18,6 @@ class Appeal:
 
 @dataclass(frozen=True)
 class ProcessedAppeal:
-    """An appeal after classification and SLA evaluation (one audit-log row)."""
-
     appeal_id: str
     submitted_on: date
     masked_text: str
